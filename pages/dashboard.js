@@ -4,7 +4,6 @@ import { useRouter } from 'next/router';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
-  const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -18,15 +17,6 @@ export default function Dashboard() {
       }
       
       setUser(user);
-      
-      // Get subscription status
-      const { data: subscriptionData } = await supabase
-        .from('user_subscriptions')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      setSubscription(subscriptionData);
       setLoading(false);
     };
     
@@ -61,33 +51,6 @@ export default function Dashboard() {
       
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="bg-white shadow rounded-lg p-6">
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-2">Your Subscription</h2>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              {subscription ? (
-                <div>
-                  <p className="mb-2">
-                    <span className="font-medium">Status:</span> 
-                    <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                      subscription.status === 'trialing' ? 'bg-yellow-100 text-yellow-800' :
-                      subscription.status === 'active' ? 'bg-green-100 text-green-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {subscription.status}
-                    </span>
-                  </p>
-                  {subscription.status === 'trialing' && (
-                    <p className="text-sm text-gray-600">
-                      Your free trial ends on {new Date(subscription.trial_end).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p>No subscription found. Please sign up for a plan.</p>
-              )}
-            </div>
-          </div>
-          
           <h2 className="text-xl font-semibold mb-4">Your 7-Day Challenge</h2>
           <div className="space-y-4">
             {[1, 2, 3, 4, 5, 6, 7].map((day) => (
@@ -103,15 +66,13 @@ export default function Dashboard() {
             ))}
           </div>
           
-          {subscription?.status !== 'active' && (
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <h2 className="text-xl font-semibold mb-4">Unlock Full 30-Day Challenge</h2>
-              <p className="text-gray-600 mb-4">Get access to 23 additional lessons and advanced coding challenges.</p>
-              <a href="/checkout" className="inline-block px-6 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700">
-                Start 7-Day Free Trial
-              </a>
-            </div>
-          )}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <h2 className="text-xl font-semibold mb-4">Unlock Full 30-Day Challenge</h2>
+            <p className="text-gray-600 mb-4">Get access to 23 additional lessons and advanced coding challenges.</p>
+            <button className="px-6 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+              Start 7-Day Free Trial
+            </button>
+          </div>
         </div>
       </main>
     </div>
