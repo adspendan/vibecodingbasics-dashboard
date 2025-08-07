@@ -1,3 +1,5 @@
+# Create a comprehensive .gitignore
+cat > .gitignore << EOF
 # Dependencies
 node_modules/
 /.pnp
@@ -31,3 +33,13 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Large binary files
+*.node
+*.wasm
+*.pack.gz
+EOF
+
+# Add the updated .gitignore
+git add .gitignore
+git commit -m "Update .gitignore to exclude large files"
