@@ -1,12 +1,14 @@
+// pages/dashboard.js (Updated)
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 
 export default function Dashboard() {
-  const { user, subscription, loading, signOut } = useAuth();
+  const { user, subscription, loading, signOut, resendConfirmationEmail } = useAuth();
   const router = useRouter();
   const [projects, setProjects] = useState([]);
+  const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
     // Redirect if not authenticated
@@ -15,8 +17,13 @@ export default function Dashboard() {
       return;
     }
 
-    // Fetch projects if authenticated
-    if (user) {
+    // Check if email is confirmed
+    if (user && !user.email_confirmed_at) {
+      return; // Don't fetch projects until email is confirmed
+    }
+
+    // Fetch projects if authenticated and email confirmed
+    if (user && user.email_confirmed_at) {
       fetchProjects();
     }
   }, [user, loading, router]);
@@ -42,6 +49,15 @@ export default function Dashboard() {
     }
   };
 
+  const handleResendEmail = async () => {
+    try {
+      await resendConfirmationEmail(user.email);
+      setEmailSent(true);
+    } catch (error) {
+      console.error('Error resending confirmation email:', error);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     router.push('/');
@@ -60,6 +76,55 @@ export default function Dashboard() {
 
   if (!user) {
     return null; // Will redirect to login
+  }
+
+  // Show email verification screen if email not confirmed
+  if (!user.email_confirmed_at) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-md">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100">
+              <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Verify Your Email</h2>
+            <p className="mt-2 text-gray-600">
+              We've sent a verification link to <span className="font-medium">{user.email}</span>
+            </p>
+            
+            {emailSent ? (
+              <div className="mt-6 bg-green-50 p-4 rounded-md">
+                <p className="text-green-800">Email sent! Please check your inbox.</p>
+              </div>
+            ) : (
+              <div className="mt-6">
+                <button
+                  onClick={handleResendEmail}
+                  className="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition duration-300"
+                >
+                  Resend Verification Email
+                </button>
+              </div>
+            )}
+            
+            <div className="mt-6">
+              <button
+                onClick={handleSignOut}
+                className="text-gray-600 hover:text-gray-800 text-sm"
+              >
+                Sign out
+              </button>
+            </div>
+            
+            <p className="mt-4 text-sm text-gray-500">
+              Didn't receive the email? Check your spam folder or contact support.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
