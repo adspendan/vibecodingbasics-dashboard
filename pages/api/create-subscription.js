@@ -1,3 +1,4 @@
+import { supabaseServer } from '../../lib/supabase';
 import stripe from '../../lib/stripe';
 
 export default async function handler(req, res) {
@@ -5,34 +6,70 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { customer_id, payment_method_id } = req.body;
-
   try {
-    // Create a subscription with a 7-day trial
+    // Get the user from the session
+    const { user } = await supabaseServer.auth.getUser();
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get or create Stripe customer
+    let customer;
+    const { data: subscriptionData } = await supabaseServer
+      .from('user_subscriptions')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (subscriptionData?.stripe_customer_id) {
+      // Existing customer
+      customer = await stripe.customers.retrieve(subscriptionData.stripe_customer_id);
+    } else {
+      // New customer
+      customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id,
+        },
+      });
+    }
+
+    // Create the subscription with a 7-day trial
     const subscription = await stripe.subscriptions.create({
-      customer: customer_id,
+      customer: customer.id,
       items: [
         {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Vibe Coding Basics - Monthly',
-              description: 'Full access to Vibe Coding Basics curriculum',
-            },
-            unit_amount: 4900, // $49.00
-            recurring: {
-              interval: 'month',
-            },
-          },
+          price: process.env.STRIPE_PRICE_ID, // You need to set this environment variable
         },
       ],
-      trial_period_days: 7,
       payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      trial_period_days: 7,
       expand: ['latest_invoice.payment_intent'],
     });
 
+    // Save subscription to Supabase
+    const { error } = await supabaseServer
+      .from('user_subscriptions')
+      .upsert({
+        id: subscription.id,
+        user_id: user.id,
+        stripe_customer_id: customer.id,
+        stripe_subscription_id: subscription.id,
+        status: subscription.status,
+        trial_end: new Date(subscription.trial_end * 1000),
+        current_period_end: new Date(subscription.current_period_end * 1000),
+      });
+
+    if (error) {
+      console.error('Error saving subscription to Supabase:', error);
+    }
+
+    // Return the client secret for payment
     res.status(200).json({
-      subscription,
+      subscriptionId: subscription.id,
+      clientSecret: subscription.latest_invoice.payment_intent.client_secret,
     });
   } catch (error) {
     console.error('Error creating subscription:', error);
